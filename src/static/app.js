@@ -44,6 +44,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // Authentication state
   let currentUser = null;
 
+  // Activity to highlight from a shared URL (e.g. ?activity=Chess+Club)
+  const highlightActivity = new URLSearchParams(window.location.search).get("activity");
+
   // Time range mappings for the dropdown
   const timeRanges = {
     morning: { start: "06:00", end: "08:00" }, // Before school hours
@@ -472,6 +475,67 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // Escapes a string for safe use in HTML attribute values
+  function escapeAttr(str) {
+    return str
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+
+  // Returns a shareable URL for a given activity name
+  function getShareUrl(activityName) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("activity", activityName);
+    return url.toString();
+  }
+
+  // Handles sharing an activity on the chosen platform
+  function handleShare(platform, activityName, buttonElement) {
+    const shareUrl = getShareUrl(activityName);
+    const message = `Check out ${activityName} at Mergington High School! Sign up for extracurricular activities.`;
+
+    switch (platform) {
+      case "copy":
+        navigator.clipboard.writeText(shareUrl).then(() => {
+          const originalHtml = buttonElement.innerHTML;
+          buttonElement.innerHTML = '✓<span class="tooltip-text">Copied!</span>';
+          setTimeout(() => {
+            buttonElement.innerHTML = originalHtml;
+          }, 2000);
+        }).catch(() => {
+          alert("Could not copy link. Please copy it manually: " + shareUrl);
+        });
+        break;
+      case "twitter":
+        window.open(
+          `https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}&url=${encodeURIComponent(shareUrl)}`,
+          "_blank"
+        );
+        break;
+      case "facebook":
+        window.open(
+          `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,
+          "_blank"
+        );
+        break;
+      case "whatsapp":
+        window.open(
+          `https://wa.me/?text=${encodeURIComponent(message + " " + shareUrl)}`,
+          "_blank"
+        );
+        break;
+      case "email":
+        window.open(
+          `mailto:?subject=${encodeURIComponent("Check out " + activityName + " at Mergington High School!")}&body=${encodeURIComponent(message + "\n\n" + shareUrl)}`,
+          "_blank"
+        );
+        break;
+    }
+  }
+
   // Function to render a single activity card
   function renderActivityCard(name, details) {
     const activityCard = document.createElement("div");
@@ -569,6 +633,26 @@ document.addEventListener("DOMContentLoaded", () => {
         `
         }
       </div>
+      <div class="share-section">
+        <span class="share-label">Share:</span>
+        <div class="share-buttons">
+          <button class="share-button share-copy tooltip" aria-label="Copy link to ${escapeAttr(name)}" data-activity="${escapeAttr(name)}" data-platform="copy">
+            📋<span class="tooltip-text">Copy link</span>
+          </button>
+          <button class="share-button share-twitter tooltip" aria-label="Share ${escapeAttr(name)} on X (Twitter)" data-activity="${escapeAttr(name)}" data-platform="twitter">
+            𝕏<span class="tooltip-text">Share on X (Twitter)</span>
+          </button>
+          <button class="share-button share-facebook tooltip" aria-label="Share ${escapeAttr(name)} on Facebook" data-activity="${escapeAttr(name)}" data-platform="facebook">
+            f<span class="tooltip-text">Share on Facebook</span>
+          </button>
+          <button class="share-button share-whatsapp tooltip" aria-label="Share ${escapeAttr(name)} on WhatsApp" data-activity="${escapeAttr(name)}" data-platform="whatsapp">
+            💬<span class="tooltip-text">Share on WhatsApp</span>
+          </button>
+          <button class="share-button share-email tooltip" aria-label="Share ${escapeAttr(name)} via Email" data-activity="${escapeAttr(name)}" data-platform="email">
+            ✉<span class="tooltip-text">Share via Email</span>
+          </button>
+        </div>
+      </div>
     `;
 
     // Add click handlers for delete buttons
@@ -587,7 +671,23 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
+    // Add click handlers for share buttons
+    const shareButtons = activityCard.querySelectorAll(".share-button");
+    shareButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        handleShare(button.dataset.platform, button.dataset.activity, button);
+      });
+    });
+
     activitiesList.appendChild(activityCard);
+
+    // If this activity was linked directly, highlight and scroll to it
+    if (highlightActivity && name === highlightActivity) {
+      activityCard.classList.add("highlighted-activity");
+      setTimeout(() => {
+        activityCard.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 100);
+    }
   }
 
   // Event listeners for search and filter
